@@ -1,7 +1,9 @@
 import OpenAI from "openai";
+import readlineSync from 'readline-sync';
+
 const client = new OpenAI();
 
-import { createTodo, deleteTodoById, getAllTodos, searchTodo, updateTodo } from '../controller/todos.controller'
+import { createTodo, deleteTodoById, getAllTodos, searchTodo, updateTodo } from '../controller/todos.controller.js'
 
 const tools = {
     getAllTodos: getAllTodos,
@@ -55,7 +57,7 @@ PLAN
 {"type": "plan", "plan": "I will use createTodo to add a task for shopping groceries to the database"}
 
 ACTION
-{"type": "action", "action": "I will use createTodo to add a task for shopping groceries to the database"}
+{"type": "action", "function": "createTodo", "input" : "I will use createTodo to add a task for shopping groceries to the database"}
 
 OBSERVATION
 {"type": "observation", "observation": "I have added a task for shopping groceries to the database"}
@@ -80,7 +82,7 @@ PLAN
 {"type": "plan", "plan": "I will search for the task 'Shopping groceries' in the database."}
 
 ACTION
-{"type": "action", "action": "I will use searchTodo to find 'Shopping groceries' in the database."}
+{"type": "action", "function": "searchTodo", "input": "I will use searchTodo to find 'Shopping groceries' in the database."}
 
 OBSERVATION
 {"type": "observation", "observation": "I found the task with ID 5: 'Shopping groceries'."}
@@ -89,7 +91,7 @@ PLAN
 {"type": "plan", "plan": "I will update the task ID 5 to 'Buy weekly groceries'."}
 
 ACTION
-{"type": "action", "action": "I will use updateTodo with ID 5 and update the task to 'Buy weekly groceries'."}
+{"type": "action", "function": "updateTodo", "input": "I will use updateTodo with ID 5 and update the task to 'Buy weekly groceries'."}
 
 OBSERVATION
 {"type": "observation", "observation": "The task has been updated successfully."}
@@ -103,3 +105,35 @@ OUTPUT
 const message = [{ role: "system", content: SYSTEM_PROMPT }]
 
 
+while (true) {
+    const query = readlineSync.question("Enter your query: ");
+    const userMessage = { type: "user", user: query }
+    message.push({ role: "user", content: JSON.stringify(userMessage) })
+
+    while (true) {
+        const chat = await client.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: message,
+            // tools: tools,
+            // tool_choice: "auto"
+            response_format: { type: "json_object" }
+        })
+        const result = chat.choices[0].message.content
+        message.push({ role: "assistant", content: result })
+        
+        const action = JSON.parse(result)
+        if (action.type === "output") {
+            console.log(`⏩ : ${action.output}`)
+            break;
+        } else if (action.type === "action") {
+            const fn = tools[action.function]
+            if (!fn) throw new Error('❌ Invalid Tool Call')
+
+            const observation = await fn(action.input)
+
+            const observationMessage = { type: "observation", observation: observation }
+
+            message.push({ role: "Developer", content: JSON.stringify(observationMessage) })
+        }
+    }
+}
