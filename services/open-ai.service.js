@@ -106,13 +106,13 @@ const message = [{ role: "system", content: SYSTEM_PROMPT }]
 
 
 while (true) {
-    const query = readlineSync.question("Enter your query: ");
+    const query = readlineSync.question(">>>>");
     const userMessage = { type: "user", user: query }
     message.push({ role: "user", content: JSON.stringify(userMessage) })
 
     while (true) {
         const chat = await client.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-3.5-turbo",
             messages: message,
             // tools: tools,
             // tool_choice: "auto"
